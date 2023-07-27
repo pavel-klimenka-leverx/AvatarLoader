@@ -1,0 +1,12 @@
+{
+  "type": "service_account",
+  "project_id": "lx-onb-recon-ui",
+  "private_key_id": "154a26eceebe43e806d01c07ca953863cbb257e7",
+  "private_key": "{PLACE_SERVICE_KEY}",
+  "client_email": "firebase-adminsdk-73rs8@lx-onb-recon-ui.iam.gserviceaccount.com",
+  "client_id": "115560963921657301241",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-73rs8%40lx-onb-recon-ui.iam.gserviceaccount.com"
+}
