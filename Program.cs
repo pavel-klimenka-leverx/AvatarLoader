@@ -1,6 +1,7 @@
 ﻿using AvatarTemp.Exceptions;
 using AvatarTemp.Models;
 using AvatarTemp.Services;
+using FirebaseAdmin.Auth;
 using LeverX.Secrets;
 using Microsoft.Extensions.Configuration;
 using System.Text.RegularExpressions;
@@ -57,7 +58,7 @@ namespace AvatarTemp
         private static async Task<bool> MainMenu()
         {
             Log();
-            Log("1) Update images,");
+            Log("1) Update images");
             Log("2) Validate emails");
             Log("Q) Exit");
             ConsoleKey input = Console.ReadKey().Key;
@@ -83,14 +84,14 @@ namespace AvatarTemp
             Log($"\n<> Fetched {users.Count} users.");
 
             Regex emailRegex = new Regex(@"^[a-z]+\.[a-z]+@leverx.com$", RegexOptions.Compiled);
-            uint problemCount = 0;
+            List<UserProfile> brokenUsers = new();
 
             foreach(UserProfile user in users)
             {
                 if (user.Email == null)
                 {
-                    Log($"--> PROBLEM: User withour email field, Id: {user.Id ?? ""}");
-                    ++problemCount;
+                    Log($"--> PROBLEM: User withour email field, Id: {user.Id ?? ""}", ConsoleColor.Red);
+                    brokenUsers.Add(user);
                 }
                 else
                 {
@@ -100,13 +101,65 @@ namespace AvatarTemp
                     }
                     else
                     {
-                        Log($"--> PROBLEM: {user.Email}");
-                        ++problemCount;
+                        Log($"--> PROBLEM: {user.Email}", ConsoleColor.Red);
+                        brokenUsers.Add(user); ;
                     }
                 }
             }
 
-            Log($"\nFound {problemCount} problems.");
+            Log($"\nFound {brokenUsers.Count} problems.");
+            Log("Start fixing process?(y/n)");
+            ConsoleKey input = Console.ReadKey(true).Key;
+            if (input != ConsoleKey.Y) return;
+
+            bool skipFirebaseFailure = false;
+            foreach(UserProfile user in brokenUsers)
+            {
+                if(user.Id == null)
+                {
+                    Log("Found user without ID field. Skipping...");
+                }
+
+                UserRecord userRecord = null!;
+                try
+                {
+                    userRecord = await _firebaseService.GetUserFromFirebase(user.Id!);
+                }
+                catch(Exception ex)
+                {
+                    Log($"Failed to find user in firebase: {ex.Message}");
+                    if(!skipFirebaseFailure)
+                    {
+                        Log("Skip?(y/n/a)");
+                        ConsoleKey firebaseSkipInput = Console.ReadKey().Key;
+                        switch(firebaseSkipInput)
+                        {
+                            case ConsoleKey.A:
+                                skipFirebaseFailure = true;
+                                continue;
+                            case ConsoleKey.Y:
+                                continue;
+                            case ConsoleKey.N:
+                            default:
+                                return;
+                        }
+                    }
+                }
+                string tokenEmail = userRecord.Email;
+
+                if(string.IsNullOrEmpty(tokenEmail))
+                {
+                    Log($"Can't fix user: token email is invalid or empty. User ID: {userRecord.Uid}");
+                }
+
+                string oldEmail = user.Email ?? "";
+                user.Email = tokenEmail;
+
+                if (_parameters.DryRun) ;
+                else await _baseDataService.UpdateUser(user);
+
+                Log($"Fixed user email: '{oldEmail}' -> '{user.Email}'");
+            }
         }
 
         private static async Task UpdateImagesCmd()
@@ -116,6 +169,7 @@ namespace AvatarTemp
             Log($"\n<> Fetched {users.Count} users.");
 
             List<UserImage> images = new();
+            Random random = new Random();
 
             try
             {
@@ -127,7 +181,7 @@ namespace AvatarTemp
                 {
                     if(user.Email == null)
                     {
-                        Log("User without email field, continuing...");
+                        Log("User without email field, continuing...", ConsoleColor.Red);
                         continue;
                     }
 
@@ -138,11 +192,13 @@ namespace AvatarTemp
                         memoryUsed += (ulong)imageStream.Length;
                         images.Add(new UserImage(user, imageStream));
                         Log($"Fetched: {user.Email}; memory usage = {memoryUsed}");
-                        Thread.Sleep((int)(_parameters.LesFetchDelaySec * 1000));
+                        int delayMs = (int)(_parameters.LesFetchDelaySec * 1000) + random.Next(0, _parameters.LesFetchDelayRandomDeltaMs);
+                        Log($"Wating for {delayMs} ms...");
+                        Thread.Sleep(delayMs);
                     }
                     catch(ImageNotFoundException ex)
                     {
-                        Log(ex.Message);
+                        Log(ex.Message, ConsoleColor.Red);
 
                         if(skipDownloadErrors)
                         {}
@@ -160,7 +216,7 @@ namespace AvatarTemp
                                 case ConsoleKey.N:
                                 default:
                                     Log("\n <> Exiting...");
-                                    goto END;
+                                    return;
                             }
                         }
 
@@ -193,8 +249,6 @@ namespace AvatarTemp
                     Log(image.User.Email!);
                 }
 
-
-                END:
                 Log("\n<> Done.");
             }
             finally
@@ -206,14 +260,16 @@ namespace AvatarTemp
             }
         }
 
-        private static void Log(string message = "")
+        private static void Log(string message = "", ConsoleColor color = ConsoleColor.White)
         {
+            Console.ForegroundColor = color;    
             Console.WriteLine(message);
+            Console.ResetColor();
         }
 
         private static Exception LogException(string message)
         {
-            Log(message);
+            Log(message, ConsoleColor.Red);
             return new Exception(message);
         }
     }

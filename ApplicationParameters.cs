@@ -12,6 +12,7 @@ namespace AvatarTemp
 
         public bool DryRun { get; set; }
         public float LesFetchDelaySec { get; set; }
+        public int LesFetchDelayRandomDeltaMs { get; set; }
         public string AvatarFilenameTemplate { get; set; } = null!;
     }
 }
