@@ -61,7 +61,7 @@ namespace AvatarTemp
             Log("1) Update images");
             Log("2) Validate emails");
             Log("Q) Exit");
-            ConsoleKey input = Console.ReadKey().Key;
+            ConsoleKey input = Console.ReadKey(true).Key;
 
             switch(input)
             {
@@ -223,6 +223,38 @@ namespace AvatarTemp
                     }
                 }
 
+                Log("\n Do you want to save images to disc?(y/n)");
+                ConsoleKey saveInput = Console.ReadKey(true).Key;
+                if(saveInput == ConsoleKey.Y)
+                {
+                    const string defaultDirectory = "./LesUserAvatars";
+                    Log($"Specify directory path for saving (default = '{defaultDirectory}'): ");
+                    string? directoryInput = Console.ReadLine();
+                    if (string.IsNullOrEmpty(directoryInput)) directoryInput = defaultDirectory;
+                    Log($"Using '{directoryInput}' directory");
+
+                    try
+                    {
+                        DirectoryInfo dirInfo = Directory.CreateDirectory(directoryInput);
+                        foreach(UserImage image in images)
+                        {
+                            string filePath = Path.Combine(dirInfo.FullName, _parameters.AvatarFilenameTemplate.Replace("{{email}}", image.User.Email));
+                            if(!_parameters.DryRun)
+                            {
+                                using FileStream fileStream = File.Create(filePath);
+                                fileStream.Write(image.Image.ToArray());
+                                fileStream.Close();
+                            }
+                            Log($"Saved: {filePath}");
+                        }
+                    }
+                    catch(Exception ex)
+                    {
+                        Log($"Something went wrong while saving images to disc: {ex.Message}", ConsoleColor.Red);
+                        return;
+                    }
+                }
+
                 Log("\n<> Uploading images to firebase storage...");
                 foreach(UserImage image in images)
                 {
@@ -258,6 +290,11 @@ namespace AvatarTemp
                     image.Image.Close();
                 }
             }
+        }
+
+        private static void SaveImagesToDisc(List<UserImage> images)
+        {
+
         }
 
         private static void Log(string message = "", ConsoleColor color = ConsoleColor.White)
