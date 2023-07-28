@@ -33,7 +33,7 @@ namespace AvatarTemp
 
         static Program()
         {
-            Log("\nInitializing, please wait...");
+            Print("\nInitializing, please wait...");
 
             SecretManager.Initialize();
             FirebaseService.Initialize(File.ReadAllText("service.json"));
@@ -48,8 +48,8 @@ namespace AvatarTemp
 
         static async Task Main(string[] args)
         {
-            if (_parameters.DryRun) Console.WriteLine("\nThe program will run in 'Dry Run' mode. Press any key to continue...");
-            else Console.WriteLine("\nThe program will run in 'For Real' mode. Press any key to continue...");
+            if (_parameters.DryRun) Print("\nThe program will run in 'Dry Run' mode. Press any key to continue...", ConsoleColor.Green);
+            else Print("\nThe program will run in 'For Real' mode. Press any key to continue...", ConsoleColor.Green);
             Console.ReadKey(true);
 
             while(await MainMenu());
@@ -57,10 +57,10 @@ namespace AvatarTemp
 
         private static async Task<bool> MainMenu()
         {
-            Log();
-            Log("1) Update images");
-            Log("2) Validate emails");
-            Log("Q) Exit");
+            Print();
+            Print("1) Update images");
+            Print("2) Validate emails");
+            Print("Q) Exit");
             ConsoleKey input = Console.ReadKey(true).Key;
 
             switch(input)
@@ -79,9 +79,9 @@ namespace AvatarTemp
 
         private static async Task ValidateEmailsCmd()
         {
-            Log("\n<> Fetching all users from BaseUserApi...");
+            Print("\n<> Fetching all users from BaseUserApi...");
             List<UserProfile> users = await _baseDataService.GetAllUsers();
-            Log($"\n<> Fetched {users.Count} users.");
+            Print($"\n<> Fetched {users.Count} users.");
 
             Regex emailRegex = new Regex(@"^[a-z]+\.[a-z]+@leverx.com$", RegexOptions.Compiled);
             List<UserProfile> brokenUsers = new();
@@ -90,25 +90,25 @@ namespace AvatarTemp
             {
                 if (user.Email == null)
                 {
-                    Log($"--> PROBLEM: User withour email field, Id: {user.Id ?? ""}", ConsoleColor.Red);
+                    Print($"--> PROBLEM: User withour email field, Id: {user.Id ?? ""}", ConsoleColor.Red);
                     brokenUsers.Add(user);
                 }
                 else
                 {
                     if (emailRegex.IsMatch(user.Email))
                     {
-                        Log($"Passed: {user.Email}");
+                        Print($"Passed: {user.Email}");
                     }
                     else
                     {
-                        Log($"--> PROBLEM: {user.Email}", ConsoleColor.Red);
+                        Print($"--> PROBLEM: {user.Email}", ConsoleColor.Red);
                         brokenUsers.Add(user); ;
                     }
                 }
             }
 
-            Log($"\nFound {brokenUsers.Count} problems.");
-            Log("Start fixing process?(y/n)");
+            Print($"\nFound {brokenUsers.Count} problems.");
+            Print("Start fixing process?(y/n)");
             ConsoleKey input = Console.ReadKey(true).Key;
             if (input != ConsoleKey.Y) return;
 
@@ -117,7 +117,7 @@ namespace AvatarTemp
             {
                 if(user.Id == null)
                 {
-                    Log("Found user without ID field. Skipping...");
+                    Print("Found user without ID field. Skipping...");
                 }
 
                 UserRecord userRecord = null!;
@@ -127,10 +127,10 @@ namespace AvatarTemp
                 }
                 catch(Exception ex)
                 {
-                    Log($"Failed to find user in firebase: {ex.Message}");
+                    Print($"Failed to find user in firebase: {ex.Message}");
                     if(!skipFirebaseFailure)
                     {
-                        Log("Skip?(y/n/a)");
+                        Print("Skip?(y/n/a)");
                         ConsoleKey firebaseSkipInput = Console.ReadKey().Key;
                         switch(firebaseSkipInput)
                         {
@@ -149,7 +149,7 @@ namespace AvatarTemp
 
                 if(string.IsNullOrEmpty(tokenEmail))
                 {
-                    Log($"Can't fix user: token email is invalid or empty. User ID: {userRecord.Uid}");
+                    Print($"Can't fix user: token email is invalid or empty. User ID: {userRecord.Uid}");
                 }
 
                 string oldEmail = user.Email ?? "";
@@ -158,22 +158,22 @@ namespace AvatarTemp
                 if (_parameters.DryRun) ;
                 else await _baseDataService.UpdateUser(user);
 
-                Log($"Fixed user email: '{oldEmail}' -> '{user.Email}'");
+                Print($"Fixed user email: '{oldEmail}' -> '{user.Email}'");
             }
         }
 
         private static async Task UpdateImagesCmd()
         {
-            Log("\n<> Fetching all users from BaseUserApi...");
+            Print("\n<> Fetching all users from BaseUserApi...");
             List<UserProfile> users = await _baseDataService.GetAllUsers();
-            Log($"\n<> Fetched {users.Count} users.");
+            Print($"\n<> Fetched {users.Count} users.");
 
             List<UserImage> images = new();
             Random random = new Random();
 
             try
             {
-                Log("\n<> Fetching images from LES...");
+                Print("\n<> Fetching images from LES...");
 
                 bool skipDownloadErrors = false;
                 ulong memoryUsed = 0u;
@@ -181,7 +181,7 @@ namespace AvatarTemp
                 {
                     if(user.Email == null)
                     {
-                        Log("User without email field, continuing...", ConsoleColor.Red);
+                        Print("User without email field, continuing...", ConsoleColor.Red);
                         continue;
                     }
 
@@ -191,20 +191,20 @@ namespace AvatarTemp
                         imageStream = _parameters.DryRun ? new MemoryStream() : await _lesService.GetUserPicture(user.Email);
                         memoryUsed += (ulong)imageStream.Length;
                         images.Add(new UserImage(user, imageStream));
-                        Log($"Fetched: {user.Email}; memory usage = {memoryUsed}");
+                        Print($"Fetched: {user.Email}; memory usage = {memoryUsed}");
                         int delayMs = (int)(_parameters.LesFetchDelaySec * 1000) + random.Next(0, _parameters.LesFetchDelayRandomDeltaMs);
-                        Log($"Wating for {delayMs} ms...");
+                        Print($"Wating for {delayMs} ms...");
                         Thread.Sleep(delayMs);
                     }
                     catch(ImageNotFoundException ex)
                     {
-                        Log(ex.Message, ConsoleColor.Red);
+                        Print(ex.Message, ConsoleColor.Red);
 
                         if(skipDownloadErrors)
                         {}
                         else
                         {
-                            Log("Skip? y/n/a(all)");
+                            Print("Skip? y/n/a(all)");
                             ConsoleKey input = Console.ReadKey().Key;
                             switch(input)
                             {
@@ -215,7 +215,7 @@ namespace AvatarTemp
                                     break;
                                 case ConsoleKey.N:
                                 default:
-                                    Log("\n <> Exiting...");
+                                    Print("\n <> Exiting...");
                                     return;
                             }
                         }
@@ -223,15 +223,15 @@ namespace AvatarTemp
                     }
                 }
 
-                Log("\n Do you want to save images to disc?(y/n)");
+                Print("\n Do you want to save images to disc?(y/n)");
                 ConsoleKey saveInput = Console.ReadKey(true).Key;
                 if(saveInput == ConsoleKey.Y)
                 {
                     const string defaultDirectory = "./LesUserAvatars";
-                    Log($"Specify directory path for saving (default = '{defaultDirectory}'): ");
+                    Print($"Specify directory path for saving (default = '{defaultDirectory}'): ");
                     string? directoryInput = Console.ReadLine();
                     if (string.IsNullOrEmpty(directoryInput)) directoryInput = defaultDirectory;
-                    Log($"Using '{directoryInput}' directory");
+                    Print($"Using '{directoryInput}' directory");
 
                     try
                     {
@@ -245,43 +245,43 @@ namespace AvatarTemp
                                 fileStream.Write(image.Image.ToArray());
                                 fileStream.Close();
                             }
-                            Log($"Saved: {filePath}");
+                            Print($"Saved: {filePath}");
                         }
                     }
                     catch(Exception ex)
                     {
-                        Log($"Something went wrong while saving images to disc: {ex.Message}", ConsoleColor.Red);
+                        Print($"Something went wrong while saving images to disc: {ex.Message}", ConsoleColor.Red);
                         return;
                     }
                 }
 
-                Log("\n<> Uploading images to firebase storage...");
+                Print("\n<> Uploading images to firebase storage...");
                 foreach(UserImage image in images)
                 {
                     image.User.ImageUrl = _parameters.DryRun ? "https://DRY_RUN.com" : await _firebaseService.UploadUserAvatarToStorage(image.Image, _parameters.AvatarFilenameTemplate.Replace("{{email}}", image.User.Email));
 
-                    Log($"{image.User.Email!} >> {image.User.ImageUrl};");
+                    Print($"{image.User.Email!} >> {image.User.ImageUrl};");
                 }
 
-                Log("\n<> Updating database records for image urls...");
+                Print("\n<> Updating database records for image urls...");
                 foreach(UserImage image in images)
                 {
                     if (_parameters.DryRun) ;
                     else await _baseDataService.UpdateUser(image.User);
 
-                    Log(image.User.Email!);
+                    Print(image.User.Email!);
                 }
 
-                Log("\n<> Updating firebase 'PhotoUrl' claims...");
+                Print("\n<> Updating firebase 'PhotoUrl' claims...");
                 foreach(UserImage image in images)
                 {
                     if (_parameters.DryRun) ;
                     else await _firebaseService.UpdateUserImage(image.User.Id!, image.User.ImageUrl!);
 
-                    Log(image.User.Email!);
+                    Print(image.User.Email!);
                 }
 
-                Log("\n<> Done.");
+                Print("\n<> Done.");
             }
             finally
             {
@@ -297,7 +297,7 @@ namespace AvatarTemp
 
         }
 
-        private static void Log(string message = "", ConsoleColor color = ConsoleColor.White)
+        private static void Print(string message = "", ConsoleColor color = ConsoleColor.White)
         {
             Console.ForegroundColor = color;    
             Console.WriteLine(message);
@@ -306,7 +306,7 @@ namespace AvatarTemp
 
         private static Exception LogException(string message)
         {
-            Log(message, ConsoleColor.Red);
+            Print(message, ConsoleColor.Red);
             return new Exception(message);
         }
     }
