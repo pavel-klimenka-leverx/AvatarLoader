@@ -117,7 +117,8 @@ namespace AvatarTemp
             {
                 if(user.Id == null)
                 {
-                    Print("Found user without ID field. Skipping...");
+                    Print("Found user without ID field. Skipping...", ConsoleColor.Red);
+                    continue;
                 }
 
                 UserRecord userRecord = null!;
@@ -149,7 +150,8 @@ namespace AvatarTemp
 
                 if(string.IsNullOrEmpty(tokenEmail))
                 {
-                    Print($"Can't fix user: token email is invalid or empty. User ID: {userRecord.Uid}");
+                    Print($"Can't fix user: firebase email is invalid or empty. User ID: {userRecord.Uid}. Skipping...", ConsoleColor.Red);
+                    continue;
                 }
 
                 string oldEmail = user.Email ?? "";
@@ -290,11 +292,6 @@ namespace AvatarTemp
                     image.Image.Close();
                 }
             }
-        }
-
-        private static void SaveImagesToDisc(List<UserImage> images)
-        {
-
         }
 
         private static void Print(string message = "", ConsoleColor color = ConsoleColor.White)
